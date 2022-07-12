@@ -5,7 +5,10 @@ __pycache__/
 
 # C extensions
 *.so
+
+#caraline's
 .DS_STORE
+data/out/*
 
 # Distribution / packaging
 .Python
