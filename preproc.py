@@ -10,10 +10,16 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
+from nltk.util import ngrams
+from nltk.collocations import BigramCollocationFinder
+from nltk.metrics import BigramAssocMeasures
+
 import spacy
 from spacy import displacy
 # en-core-web-sm-3.4.0
 # python -m spacy download en_core_web_sm
+
+
 
 
 logging.basicConfig(
@@ -46,6 +52,8 @@ class Preprocessor():
 		self.lemmatizer = WordNetLemmatizer()
 		self.document = []
 		self.document_text = ""
+		self.ngrams = []
+		self.ngrams_frequency = {}
 
 
 	def read_file(self):
@@ -61,13 +69,9 @@ class Preprocessor():
 	def filter_stopwords_lemmatize(self):
 		logger.info("removing stopwords ...")
 		new_lines = []
-		# lemmatizer = WordNetLemmatizer()
-		# document = []
 
 		for line in self.lines:
-			# remove empty lines
 			if line is not None:
-				new_sentence = []
 
 				# split and tokenize
 				old_sentence = word_tokenize(line)
@@ -94,39 +98,109 @@ class Preprocessor():
 							else:
 								new_word = self.lemmatizer.lemmatize(word, "v")
 
-							# add it to new_sentence
-							# new_sentence.append(new_word)
+							## not entirely sure if i should be lowercasing everything
+							# new_word = new_word.lower()
 
 							# and add it to the text document
 							self.document.append(new_word)
-
 							logger.info("%s => %s" % (word,new_word))	
 
-				# # if its not just a blank line
-				# if not len(new_sentence) < 1:
-				# 	# add it the sentence to the newlines
-				# 	new_lines.append(new_sentence)
 		self.document_text = ' '.join(self.document)
-		# self.lines = new_lines
+
 
 	def apply_ner(self):
 		logger.info("applying NER ...")
-
 		NER = spacy.load('en_core_web_sm')
-
-		
-		# print(document_text)
 
 		mytext = NER(self.document_text)
 
-		# print(mytext.ents)
-
+		logger.info("Found the following entities:")
 		for ent in mytext.ents:
 			# print(ent.text, ent.start_char, ent.end_char, ent.label_)
-			logger.info("%s : %s" % (ent.text, ent.label_))
+			logger.info("\t %s : %s" % (ent.text, ent.label_))
+			this_ent = ent.text
 
 			# if there is one or more spaces in the ENT
+			if " " in this_ent:
 				# then convert them to underscores in the document text
+				new_ent = this_ent.replace(" ","_")
+				# print(new_ent)
+
+				# then also replace the original text document
+				self.document_text = self.document_text.replace(this_ent, new_ent)
+
+		# also update the tokenized array
+		self.document = word_tokenize(self.document_text)
+
+
+	# https://www.geeksforgeeks.org/python-bigrams-frequency-in-string/
+	def _find_bi_grams(self, text):
+
+		bigrams = zip(text, text[1:])
+		for gram in bigrams:
+
+			bigram_string = ' '.join(gram)
+			self.ngrams.append(bigram_string)
+
+
+	def _find_tri_grams(self, text):
+		# this doesnt seem to be producing as meaningful result as the bigram :/
+
+		trigrams = zip(text, text[1:], text[2:])
+		for gram in trigrams:
+
+			trigram_string = ' '.join(gram)
+			self.ngrams.append(trigram_string)
+
+
+	def sliding_window_merge(self):
+		logger.info("using a sliding window to merge remaining phrases ...")
+
+		# ****************************************************
+		# BI-GRAMS VS TRI-GRAMS ::
+		# 
+		# 	I won't use trigrams bc frequencies arent as good
+		#		but logic for it is here in this block
+		#
+		#
+		# self.ngrams = []
+		#
+		# self._find_tri_grams(self.document)
+		#
+		# for ngram in self.ngrams:
+		# 	frequency = self.document_text.count(ngram)
+		#
+		# 	self.ngrams_frequency['ngram'] = frequency
+		# 	print("%s : %s "% (ngram, frequency))
+		#
+		# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+		logger.info("using bi-grams for this, there are more matches...")
+		# ngram_dist = nltk.FreqDist(nltk.bigrams(self.document))
+		# print(ngram_dist.most_common())
+
+		# i will pick everything with freq > 1 for the merge
+
+		self._find_bi_grams(self.document)
+		# print(self.ngrams)
+
+		# dedupe the ngrams
+		self.ngrams = list(dict.fromkeys(self.ngrams))
+
+		for ngram in self.ngrams:
+			frequency = self.document_text.count(ngram)
+		
+			self.ngrams_frequency['ngram'] = frequency
+			# print("%s : %s "% (ngram, frequency))
+
+			# if frequency > 1, merge
+			if frequency > 1:
+				new_ngram = ngram.replace(" ","_")
+
+				# then also replace the original text document
+				self.document_text = self.document_text.replace(ngram, new_ngram)	
+				
+
 
 
 
@@ -138,13 +212,10 @@ class Preprocessor():
 def do_preprocessing():
 
 	for file in files[0:1]:
-		# initialize a new array with each file for now
-		lines = []
 
 		# get the fullpath together
 		filename = "./" + infile_path + file
 		logger.info("Starting with file "  + filename);
-
 
 		# now, instantiate a preprocess object
 		P = Preprocessor(filename)
@@ -152,23 +223,25 @@ def do_preprocessing():
 		# read the file
 		P.read_file()
 
-		# remove stopwords, lemmatize, and tokenize
+		# 2 - remove stopwords, lemmatize, and tokenize
 		# https://www.geeksforgeeks.org/python-lemmatization-with-nltk/
 		P.filter_stopwords_lemmatize()
 
 
-		logger.info("\n")
-		# print(P.document)
-
-		# apply NER 
+		# 3 - apply NER 
 		# https://www.analyticsvidhya.com/blog/2021/06/nlp-application-named-entity-recognition-ner-in-python-with-spacy/#:~:text=Named%20Entity%20Recognition%20is%20the,%2C%20money%2C%20time%2C%20etc.
 		P.apply_ner()
 
+		
+
+		# 4 - use sliding window approach to merge remaining phrases
+		P.sliding_window_merge()
+
+		print(P.document_text)
 
 
 
-
-		# at the end, write to out_file for each document
+		# 5 - at the end, write to out_file for each document
 
 
 
