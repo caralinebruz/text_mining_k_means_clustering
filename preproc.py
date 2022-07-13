@@ -45,8 +45,9 @@ files = [
 
 
 class Preprocessor():
-	def __init__(self, filename):
-		self.filename = filename
+	def __init__(self, file):
+		self.filename = "./" + infile_path + file
+		self.out_filename = "./" + outfile_path + file
 		self.lines = []
 		self.stop_words = set(stopwords.words('english'))
 		self.lemmatizer = WordNetLemmatizer()
@@ -201,7 +202,14 @@ class Preprocessor():
 				self.document_text = self.document_text.replace(ngram, new_ngram)	
 				
 
+	def write_output(self):
 
+		logger.info("Writing output file "  + self.out_filename);
+
+		with open(self.out_filename, "w") as outfile:
+
+			for word in self.document_text:
+				outfile.write(word.lower())
 
 
 
@@ -214,11 +222,11 @@ def do_preprocessing():
 	for file in files[0:1]:
 
 		# get the fullpath together
-		filename = "./" + infile_path + file
-		logger.info("Starting with file "  + filename);
+		# filename = "./" + infile_path + file
+		# logger.info("Starting with file "  + filename);
 
 		# now, instantiate a preprocess object
-		P = Preprocessor(filename)
+		P = Preprocessor(file)
 
 		# read the file
 		P.read_file()
@@ -232,16 +240,14 @@ def do_preprocessing():
 		# https://www.analyticsvidhya.com/blog/2021/06/nlp-application-named-entity-recognition-ner-in-python-with-spacy/#:~:text=Named%20Entity%20Recognition%20is%20the,%2C%20money%2C%20time%2C%20etc.
 		P.apply_ner()
 
-		
 
 		# 4 - use sliding window approach to merge remaining phrases
 		P.sliding_window_merge()
 
 		print(P.document_text)
 
-
-
 		# 5 - at the end, write to out_file for each document
+		P.write_output()
 
 
 
