@@ -44,6 +44,12 @@ files = [
 ]
 
 
+
+# class Matrix():
+# 	def __init__(self):
+# 		preprocessed_file_objects = []
+
+
 class Preprocessor():
 	def __init__(self, file):
 		self.filename = "./" + infile_path + file
@@ -53,8 +59,11 @@ class Preprocessor():
 		self.lemmatizer = WordNetLemmatizer()
 		self.document = []
 		self.document_text = ""
+		self.keywords_concepts = []
 		self.ngrams = []
 		self.ngrams_frequency = {}
+
+
 
 
 	def read_file(self):
@@ -104,7 +113,7 @@ class Preprocessor():
 
 							# and add it to the text document
 							self.document.append(new_word)
-							logger.info("%s => %s" % (word,new_word))	
+							# logger.info("%s => %s" % (word,new_word))	
 
 		self.document_text = ' '.join(self.document)
 
@@ -125,7 +134,9 @@ class Preprocessor():
 			if " " in this_ent:
 				# then convert them to underscores in the document text
 				new_ent = this_ent.replace(" ","_")
-				# print(new_ent)
+
+				# save the ENT for later matrix
+				self.keywords_concepts.append(new_ent)
 
 				# then also replace the original text document
 				self.document_text = self.document_text.replace(this_ent, new_ent)
@@ -198,6 +209,9 @@ class Preprocessor():
 			if frequency > 1:
 				new_ngram = ngram.replace(" ","_")
 
+				# save the NGRAM for later matrix
+				self.keywords_concepts.append(new_ngram)
+
 				# then also replace the original text document
 				self.document_text = self.document_text.replace(ngram, new_ngram)	
 				
@@ -207,19 +221,32 @@ class Preprocessor():
 		logger.info("Writing output file "  + self.out_filename);
 
 		with open(self.out_filename, "w") as outfile:
-
 			for word in self.document_text:
 				outfile.write(word.lower())
 
 
 
 
+def write_keywords_concepts_file(P):
+
+	logger.info("Appending to concepts file ...")
+	concepts_file = "./" + outfile_path + "concepts.txt"
+	
+	with open(concepts_file, "a") as f:
+
+		lines = P.keywords_concepts
+		for line in lines:
+			print(line)
+			f.write(line)
+			f.write("\n")
+
+
 
 # preprocess the raw data
-
 def do_preprocessing():
 
-	for file in files[0:1]:
+	#for file in files[0:2]:
+	for file in files:
 
 		# get the fullpath together
 		# filename = "./" + infile_path + file
@@ -249,16 +276,31 @@ def do_preprocessing():
 		# 5 - at the end, write to out_file for each document
 		P.write_output()
 
+		# also write the keywords concepts file
+		write_keywords_concepts_file(P)
 
 
+
+
+
+# # collect keywords and terms across all the files
+# def generate_term_document_matrix():
 
 
 
 
 
 if __name__ == '__main__':
+
 	logger.info("starting ...");
+
+	# # for the collection of metadata
+	# M = Matrix()
+
 	do_preprocessing()
+
+	# then give it the matrix class here
+	# generate_term_document_matrix(M)
 
 
 
