@@ -31,6 +31,18 @@ logger = logging
 
 infile_path = "data/"
 outfile_path = "data/out/"
+
+# files = [
+# 	"C1/article01.txt",
+# 	"C1/article02.txt",
+# 	"C1/article03.txt",
+# 	"C1/article04.txt",
+# 	"C1/article05.txt",
+# 	"C1/article06.txt",
+# 	"C1/article07.txt",
+# 	"C1/article08.txt"
+# ]
+
 files = [
 	"C1/article01.txt",
 	"C1/article02.txt",
@@ -39,7 +51,23 @@ files = [
 	"C1/article05.txt",
 	"C1/article06.txt",
 	"C1/article07.txt",
-	"C1/article08.txt"
+	"C1/article08.txt",
+	"C4/article01.txt",
+	"C4/article02.txt",
+	"C4/article03.txt",
+	"C4/article04.txt",
+	"C4/article05.txt",
+	"C4/article06.txt",
+	"C4/article07.txt",
+	"C4/article08.txt",
+	"C7/article01.txt",
+	"C7/article02.txt",
+	"C7/article03.txt",
+	"C7/article04.txt",
+	"C7/article05.txt",
+	"C7/article06.txt",
+	"C7/article07.txt",
+	"C7/article08.txt",
 ]
 
 my_process_objects = []
@@ -257,8 +285,8 @@ def write_keywords_concepts_file(P):
 # preprocess the raw data
 def do_preprocessing():
 
-	for file in files[0:3]:
-	#for file in files:
+	# for file in files[0:3]:
+	for file in files:
 
 		P = Preprocessor(file)
 
@@ -382,6 +410,7 @@ def generate_document_term_matrix():
 	# print(M.matrix)
 	for k in range(len(M.matrix)):
 		print(M.matrix[k])
+		print("\n")
 
 
 
