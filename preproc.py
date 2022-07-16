@@ -441,8 +441,8 @@ class DocuTermMatrix():
 # preprocess the raw data
 def do_preprocessing():
 
-	for file in files[0:3]:
-	#for file in files:
+	#for file in files[0:3]:
+	for file in files:
 
 		P = Preprocessor(file)
 
@@ -585,8 +585,8 @@ def generate_topics_per_folder(matrix_object):
 				this_cell_value = matrix_object.tf_idf_matrix[i][j]
 				# print(this_cell_value)
 
-				c1_aggregate_vector[j] = float(c1_aggregate_vector[j] + this_cell_value)
-				# logger.info("After adding, new value : %.8f" % c1_aggregate_vector[j])
+				c4_aggregate_vector[j] = float(c4_aggregate_vector[j] + this_cell_value)
+				# logger.info("After adding, new value : %.8f" % c4_aggregate_vector[j])
 
 
 		elif my_process_objects[i].file_basename.startswith("C7"):
@@ -597,8 +597,8 @@ def generate_topics_per_folder(matrix_object):
 				this_cell_value = matrix_object.tf_idf_matrix[i][j]
 				# print(this_cell_value)
 
-				c1_aggregate_vector[j] = float(c1_aggregate_vector[j] + this_cell_value)
-				# logger.info("After adding, new value : %.8f" % c1_aggregate_vector[j])
+				c7_aggregate_vector[j] = float(c7_aggregate_vector[j] + this_cell_value)
+				# logger.info("After adding, new value : %.8f" % c7_aggregate_vector[j])
 
 
 
@@ -610,6 +610,7 @@ def generate_topics_per_folder(matrix_object):
 
 	# write the results to a file
 	write_topics_results(c1_results, c4_results, c7_results)
+	logger.info("done writing the topics selection file.")
 
 
 
