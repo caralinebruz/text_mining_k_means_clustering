@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import math
 import string
 
 import nltk
@@ -282,45 +283,6 @@ def write_keywords_concepts_file(P):
 
 
 
-# preprocess the raw data
-def do_preprocessing():
-
-	# for file in files[0:3]:
-	for file in files:
-
-		P = Preprocessor(file)
-
-		# and add that object to the processed objects list
-		my_process_objects.append(P)
-
-		# read the file
-		P.read_file()
-
-		# 2 - remove stopwords, lemmatize, and tokenize
-		# https://www.geeksforgeeks.org/python-lemmatization-with-nltk/
-		P.filter_stopwords_lemmatize()
-
-		# 3 - apply NER 
-		# https://www.analyticsvidhya.com/blog/2021/06/nlp-application-named-entity-recognition-ner-in-python-with-spacy/#:~:text=Named%20Entity%20Recognition%20is%20the,%2C%20money%2C%20time%2C%20etc.
-		P.apply_ner()
-
-		# 4 - use sliding window approach to merge remaining phrases
-		P.sliding_window_merge()
-
-		# clean up my findings:
-		# 	removes underscores from document text, lowercases
-		#	removes underscores from frequency keys, lowercases
-		P.cleanup()
-
-		# 5 - at the end, write to out_file for each document for safety
-		P.write_output()
-
-		# also write the keywords concepts file
-		write_keywords_concepts_file(P)
-
-	return my_process_objects
-
-
 
 # # collect keywords and terms across all the files
 # def generate_term_document_matrix():
@@ -329,6 +291,9 @@ class DocuTermMatrix():
 	def __init__(self):
 		self.keywords_concepts = []
 		self.matrix = []
+		self.tf_idf = []
+		self.total_documents = len(my_process_objects)
+		self.docs_with_keyword = {}
 
 	def consolidate_keywords_concepts(self):
 		# read the file into an array of lines
@@ -376,7 +341,6 @@ class DocuTermMatrix():
 				# count the number of times the substring appears
 				if self.keywords_concepts[j] in file_object.document_text:
 
-					# print("\n TRUE !")
 					# https://stackoverflow.com/questions/8899905/count-number-of-occurrences-of-a-substring-in-a-string
 					frequency = file_object.document_text.count(self.keywords_concepts[j])
 					self.matrix[i][j] = frequency
@@ -386,6 +350,130 @@ class DocuTermMatrix():
 				# 	print(file_object.document_text)
 
 
+	def _get_tf(self, document_object, row_index, col_index):
+		# logger.debug("getting TF for a keyword in %s" % document_object.filename)
+
+		# number of times the term occurs in the current document
+		keywd_occurrence_this_document = self.matrix[row_index][col_index]
+
+		# word count of the current document
+		this_document_wordcount = len(document_object.document_text)
+
+		# logger.info("number of words in %s : %d" % (document_object.filename, this_document_wordcount))
+
+		# make the tf calculation 
+		tf = float(keywd_occurrence_this_document / this_document_wordcount)
+
+		return tf
+
+
+	def _get_idf(self, keyword, row_index, col_index):
+		# logger.info("getting IDF on keyword %s ... " % keyword)
+		# math.log uses base e
+		# test1 = math.log(20)
+		# print(test1)
+
+		num_documents_this_keyword = self.docs_with_keyword[keyword]
+		idf = float(math.log(self.total_documents / num_documents_this_keyword))
+
+		return idf
+
+	def _get_num_documents_containing_keyword(self):
+
+		for col_index in range(len(self.keywords_concepts)):
+
+			keyword = self.keywords_concepts[col_index]
+			counter = 0
+
+			# for each row of the current column
+			for row_index in range(len(my_process_objects)):
+
+				# is the value in the matrix > 0 ?
+				if self.matrix[row_index][col_index] > 0:
+					counter += 1
+
+			# logger.info("current keyword: %s num_documents %s" % (keyword, counter))
+
+			# add it to the dictionary
+			self.docs_with_keyword[keyword] = counter
+
+
+
+	def create_tf_idf(self):
+		# start with a copy of the document term matrix
+		self.tf_idf_matrix = self.matrix
+
+		self._get_num_documents_containing_keyword()
+
+		# for column (keyword) in the matrix
+		for col_index in range(len(self.keywords_concepts)):
+
+			keyword = self.keywords_concepts[col_index]
+			counter = 0
+
+			# logger.info("current keyword: %s" % keyword)
+
+			# for each row of the current column
+			for row_index in range(len(my_process_objects)):
+
+				document = my_process_objects[row_index]
+
+				# logger.info("Column: %s | Row: %s" % (keyword, document.index))
+
+				tf = self._get_tf(document, row_index, col_index)
+				# logger.info("\tTF for document %s on current keyword is : %.8f" % (document.filename, tf))
+
+				# now we make get the idf calculation
+				idf = self._get_idf(keyword, row_index, col_index)
+				# logger.info("\tIDF for this keyword is %.8f" % idf)
+
+				# then combine them to get the TF-IDF weight
+				tf_idf = float(tf * idf)
+				# logger.info("\t\tFinal TF-IDF: %.8f" % tf_idf)
+
+				# next, populate the new cell with the final valye
+				self.tf_idf_matrix[row_index][col_index] = tf_idf
+
+
+
+
+# preprocess the raw data
+def do_preprocessing():
+
+	#for file in files[0:3]:
+	for file in files:
+
+		P = Preprocessor(file)
+
+		# and add that object to the processed objects list
+		my_process_objects.append(P)
+
+		# read the file
+		P.read_file()
+
+		# 2 - remove stopwords, lemmatize, and tokenize
+		# https://www.geeksforgeeks.org/python-lemmatization-with-nltk/
+		P.filter_stopwords_lemmatize()
+
+		# 3 - apply NER 
+		# https://www.analyticsvidhya.com/blog/2021/06/nlp-application-named-entity-recognition-ner-in-python-with-spacy/#:~:text=Named%20Entity%20Recognition%20is%20the,%2C%20money%2C%20time%2C%20etc.
+		P.apply_ner()
+
+		# 4 - use sliding window approach to merge remaining phrases
+		P.sliding_window_merge()
+
+		# clean up my findings:
+		# 	removes underscores from document text, lowercases
+		#	removes underscores from frequency keys, lowercases
+		P.cleanup()
+
+		# 5 - at the end, write to out_file for each document for safety
+		P.write_output()
+
+		# also write the keywords concepts file
+		write_keywords_concepts_file(P)
+
+	return my_process_objects
 
 
 def generate_document_term_matrix():
@@ -394,24 +482,23 @@ def generate_document_term_matrix():
 
 	# firt, consolidate and dedupe all keywords across the files
 	M.consolidate_keywords_concepts()
-
-	# second, create the matrix
-	#	rows will be filenames (file_object.index)
-	#	columns will be keywords (keywords_concepts)
-	#	populate cell value based on the FREQUENCY of that keyword in the file
-
-
 	print(M.keywords_concepts)
 
 	# second, create the matrix
 	M.initialize_matrix()
 	M.fill_matrix()
 
-	# print(M.matrix)
 	for k in range(len(M.matrix)):
 		print(M.matrix[k])
 		print("\n")
 
+	print("\n~~~~ Moving on to TF-IDF section ~~~~\n")
+
+	M.create_tf_idf()
+
+	for k in range(len(M.tf_idf_matrix)):
+		print(M.tf_idf_matrix[k])
+		print("\n")
 
 
 
