@@ -83,6 +83,7 @@ class Preprocessor():
 	index = itertools.count()
 
 	def __init__(self, file):
+		self.file_basename = file
 		self.filename = "./" + infile_path + file
 		self.out_filename = "./" + outfile_path + file
 		self.lines = []
@@ -440,8 +441,8 @@ class DocuTermMatrix():
 # preprocess the raw data
 def do_preprocessing():
 
-	#for file in files[0:3]:
-	for file in files:
+	for file in files[0:3]:
+	#for file in files:
 
 		P = Preprocessor(file)
 
@@ -500,6 +501,116 @@ def generate_document_term_matrix():
 		print(M.tf_idf_matrix[k])
 		print("\n")
 
+	return M
+
+
+
+def sort_topics(keywords_concepts, folder_aggregate_vector):
+	# Overall processing 
+	zipped_aggregate = list(zip(keywords_concepts, folder_aggregate_vector))
+
+	# dedupe idk why there are duplicates
+	zipped_aggregate = set(zipped_aggregate)
+
+	# https://www.geeksforgeeks.org/python-ways-to-sort-a-zipped-list-by-values/
+	# Using sorted and lambda
+	sorted_topics = sorted(zipped_aggregate, key = lambda x: x[1], reverse=True)
+
+	for x in sorted_topics:
+		print(x)
+
+	return sorted_topics
+
+
+def write_topics_results(c1, c4, c7):
+
+	logger.info("Appending to topics output file ...")
+	topics_file = "./" + outfile_path + "topics.txt"
+	
+	with open(topics_file, "w") as f:
+
+		# prepend string C1 to the C1 lines
+		lines = c1
+		for line in lines:
+			line = str(line).strip("()")
+			f.write("C1,")
+			f.write(line)
+			f.write("\n")
+
+		# prepend string C4 to the C4 lines
+		lines = c4
+		for line in lines:
+			line = str(line).strip("()")
+			f.write("C4,")
+			f.write(line)
+			f.write("\n")
+
+		# prepend string C7 to the C7 lines
+		lines = c7
+		for line in lines:
+			line = str(line).strip("()")
+			f.write("C7,")
+			f.write(line)
+			f.write("\n")
+
+
+def generate_topics_per_folder(matrix_object):
+	logger.info("generating the topics per folder ... ")
+
+	# initialize the aggregate vectors of zeros
+	c1_aggregate_vector = [float(0)] * len(matrix_object.keywords_concepts)
+	c4_aggregate_vector = [float(0)] * len(matrix_object.keywords_concepts)
+	c7_aggregate_vector = [float(0)] * len(matrix_object.keywords_concepts)
+
+	# now go through the folders and combine the results per folder
+	for i in range(len(my_process_objects)):
+
+		if my_process_objects[i].file_basename.startswith("C1"):
+			print("C1")
+			for j in range(len(matrix_object.keywords_concepts)):
+
+				# add the cell value to the value in the aggregate vector
+				this_cell_value = matrix_object.tf_idf_matrix[i][j]
+				# print(this_cell_value)
+
+				c1_aggregate_vector[j] = float(c1_aggregate_vector[j] + this_cell_value)
+				# logger.info("After adding, new value : %.8f" % c1_aggregate_vector[j])
+
+		
+		elif my_process_objects[i].file_basename.startswith("C4"):
+			print("C4")
+			for j in range(len(matrix_object.keywords_concepts)):
+
+				# add the cell value to the value in the aggregate vector
+				this_cell_value = matrix_object.tf_idf_matrix[i][j]
+				# print(this_cell_value)
+
+				c1_aggregate_vector[j] = float(c1_aggregate_vector[j] + this_cell_value)
+				# logger.info("After adding, new value : %.8f" % c1_aggregate_vector[j])
+
+
+		elif my_process_objects[i].file_basename.startswith("C7"):
+			print("C7")
+			for j in range(len(matrix_object.keywords_concepts)):
+
+				# add the cell value to the value in the aggregate vector
+				this_cell_value = matrix_object.tf_idf_matrix[i][j]
+				# print(this_cell_value)
+
+				c1_aggregate_vector[j] = float(c1_aggregate_vector[j] + this_cell_value)
+				# logger.info("After adding, new value : %.8f" % c1_aggregate_vector[j])
+
+
+
+	# now that we're done combining each folder's results to thier own vector
+	# process the results
+	c1_results = sort_topics(matrix_object.keywords_concepts, c1_aggregate_vector)
+	c4_results = sort_topics(matrix_object.keywords_concepts, c4_aggregate_vector)
+	c7_results = sort_topics(matrix_object.keywords_concepts, c7_aggregate_vector)
+
+	# write the results to a file
+	write_topics_results(c1_results, c4_results, c7_results)
+
 
 
 
@@ -516,7 +627,11 @@ if __name__ == '__main__':
 
 	# then give it the matrix class here
 	logger.info("Next: Generating Document Term Matrix")
-	generate_document_term_matrix()
+	matrix_object = generate_document_term_matrix()
+
+	# then gather the list of topics per folder
+	logger.info("consolidate and identify topics of each folder")
+	generate_topics_per_folder(matrix_object)
 
 
 
