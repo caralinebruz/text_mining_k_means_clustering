@@ -30,8 +30,14 @@ import numpy as np
 import pandas as pd
 
 # for plotting
+from scipy.linalg import svd
+from scipy.sparse.linalg import svds
+
+
+from sklearn.decomposition import TruncatedSVD
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import confusion_matrix
 import matplotlib
 from matplotlib import pyplot as plt
 
@@ -294,7 +300,7 @@ class DocuTermMatrix():
 	def __init__(self):
 		self.keywords_concepts = []
 		self.matrix = []
-		self.tf_idf = []
+		self.tf_idf_matrix = []
 		self.total_documents = len(my_process_objects)
 		self.docs_with_keyword = {}
 
@@ -493,6 +499,14 @@ def generate_document_term_matrix():
 	print("\n~~~~ Moving on to TF-IDF section ~~~~\n")
 	M.create_tf_idf()
 
+
+	# check for sanity
+	logger.warning("checking for sanity:")
+	logger.warning(len(M.tf_idf_matrix))
+	logger.warning(M.total_documents)
+	logger.warning("my_process_objects::")
+	logger.warning(len(my_process_objects))
+
 	return M
 
 
@@ -654,14 +668,55 @@ class KMeans():
 		self.documents = matrix_object.tf_idf_matrix					# a list of vectors
 		self.number_of_clusters = 3
 
+		self.centroids = [[],[],[]]
 		# self.centroids = random.choices(matrix_object.tf_idf_matrix, k=3)
-		self.centroids = matrix_object.tf_idf_matrix[0:3]
+		# self.centroids = matrix_object.tf_idf_matrix[0:3]
 		# self.centroids = [matrix_object.tf_idf_matrix[5], matrix_object.tf_idf_matrix[10], matrix_object.tf_idf_matrix[15]]
 
 		self.clusters = [[],[],[]]
 		self.clusters_indices = [[],[],[]]
 
+	# 
+	def initialize_centroids(self):
+
+		new_centroids_str = []
+		new_centroids = []
+
+		while len(new_centroids) < 3:
+
+			starting_centroid = random.choice(self.documents)
+
+			#new_centroids.add(starting_centroid)
+
+			hash_value = hash(str(starting_centroid))
+			if hash_value not in new_centroids_str:
+
+				new_centroids_str.append(hash_value)
+				new_centroids.append(starting_centroid)
+
+
+
+		# to_pick_from = []
+		# to_pick_from = self.matrix_object.tf_idf_matrix
+
+		# for k in range(3):
+		# 	starting_centroid = random.choice(to_pick_from)
+
+		# 	print(starting_centroid)
+		# 	print("\n")
+		# 	# remove it so that it cant be picked again
+		# 	to_pick_from.remove(starting_centroid)
+
+		#	new_centroids.append(starting_centroid)
+
+		# new_centroid_list = list(new_centroids)
+		self.centroids = new_centroids
+
+
 	def assign_clusters(self):
+
+		logger.warning("checking the length of documents (tf/idf matrix)")
+		logger.warning(len(self.documents))
 
 		# for each of the documents 
 		# measure the distance to each of the centroids
@@ -781,10 +836,22 @@ class KMeans():
 
 def get_similarities(matrix_object):
 	logger.info("Starting with K-Means and k=3 ...")
+
+	logger.warning("checking for sanity atop:")
+	logger.warning(len(matrix_object.tf_idf_matrix))
 	
 	# step 1, randomly pick (k=3) data points (a vector) as our initial centroids (centroid vector)
 	K = KMeans(matrix_object)
 
+	logger.warning("checking for sanity atop:")
+	logger.warning(len(matrix_object.tf_idf_matrix))
+
+	K.initialize_centroids()
+
+	logger.warning("checking for sanity atop:")
+	logger.warning(len(matrix_object.tf_idf_matrix))
+
+	logger.info("centroids:")
 	print(K.centroids) 	# a list of 3 vectors
 
 	counter = 1
@@ -801,54 +868,34 @@ def get_similarities(matrix_object):
 	logger.info("you finished and converged to some centroid values. wohoo!")
 	logger.info("k-means took %s iterations" % counter)
 
-	# We have created the three centroid vectors/cluster representatives
-	# for i in K.centroids:
-	# 	print("\n\n\nNew Centroid:\n\n")
-	# 	for item in i:
-	# 		print(item)
-
-
 	# We have the following indices in each cluster:
 	for c in K.clusters:
 		print("a cluster has this many nodes:")
 		print(len(c))
 
+
+	logger.warning("checking for sanity:")
+	logger.warning(len(matrix_object.tf_idf_matrix))
+	logger.warning(len(K.documents))
+
+
 	return K
 
 
-def generate_plots(matrix):
-
-	# X = np.array(matrix)
-
-	pca = PCA(n_components=2)
-
-
-	Principal_Components = pca.fit_transform(matrix)
-	plot = plt.scatter(Principal_Components[:,0],Principal_Components[:,1])
-	# plt.show()
-
-
-	Principal_Components_2 = pca.fit(matrix)
-	plot2 = plt.scatter(Principal_Components[:,0],Principal_Components[:,1])
-	# plt.show()
-
-
-class ConfusionMatrix():
+class Visualize():
 
 	def __init__(self, kmeans_object):
-		# 4 x 4 cell matrix
-		self.confision_matrix = [0] * 4
+		self.features = kmeans_object.matrix_object.keywords_concepts
+		self.tf_idf_matrix = kmeans_object.matrix_object.tf_idf_matrix
 		self.predicted_clusters = kmeans_object.clusters_indices
 		self.actual_clusters = [[],[],[]]
-		self.predicted_clusters = [[],[],[]]
 
 
 	def get_actual_clusters(self):
-
 		self.actual_clusters[0] = [0,1,2,3,4,5,6,7]
 		self.actual_clusters[1] = [8,9,10,11,12,13,14,15]
 		self.actual_clusters[2] = [16,17,18,19,20,21,22,23]
-
+		self.label_dict = {}
 
 		logger.info("\nactual clusters:")
 		for cluster in self.actual_clusters:
@@ -858,23 +905,153 @@ class ConfusionMatrix():
 	def label_predicted_clusters(self):
 
 		# get the average valyes and rank them, call them lowest middle high and c1,c2,c3
-		pass
+		self.label_dict = {
+
+			0: 'police force air china',
+			1: 'mouth disease & healthcare',
+			2: 'mortgages & banks'
+
+		}
+
+	def plot_actual(self):
+
+		logger.info("plotting actual ...")
+		clusters = self.actual_clusters
+
+
+		A = np.array(self.tf_idf_matrix)
+		svd =  TruncatedSVD(n_components = 2)
+		A_transf = svd.fit_transform(A)
+
+		print("Transformed Matrix after reducing to 2 features:")
+		print(A_transf)
+
+
+		labels = files 
+		x_vals = A_transf[:,0]
+		y_vals = A_transf[:,1]
+
+		fig = plt.figure()
+		ax = fig.add_subplot()
+
+		clusters = self.predicted_clusters
+
+		for i in range(len(files)):
+
+			if i in clusters[0]:
+				ax.scatter(x_vals[i], y_vals[i], color="teal", label="police force & air china", alpha=0.3)
+
+			elif i in clusters[1]:
+				ax.scatter(x_vals[i], y_vals[i], color="magenta", label="mouth disease & healthcare", alpha=0.3)
+
+			elif i in clusters[2]:
+				ax.scatter(x_vals[i], y_vals[i], color="orange", label="mortgages & banks", alpha=0.3)
+
+		plt.xlim([-0.0005, 0.005])
+		plt.ylim([-0.0005, 0.005])
+
+
+		# https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_with_legend.html
+		handles, labels = plt.gca().get_legend_handles_labels()
+		by_label = dict(zip(labels, handles))
+		plt.legend(by_label.values(), by_label.keys())
+
+		ax.grid(True)
+		plt.title("Actual Clusters")
+		plt.show()
+
+
+	def plot_predicted(self):
+
+		logger.info("plotting predicted cluster  ...")
+
+		A = np.array(self.tf_idf_matrix)
+
+
+		svd =  TruncatedSVD(n_components = 2)
+		A_transf = svd.fit_transform(A)
+
+		print("Transformed Matrix after reducing to 2 features:")
+		print(A_transf)
+
+
+		labels = files 
+		x_vals = A_transf[:,0]
+		y_vals = A_transf[:,1]
+
+		fig = plt.figure()
+		ax = fig.add_subplot()
+
+		clusters = self.predicted_clusters
+
+		for i in range(len(files)):
+
+			if i in clusters[0]:
+				ax.scatter(x_vals[i], y_vals[i], color="teal", label="police force & air china", alpha=0.3)
+
+			elif i in clusters[1]:
+				ax.scatter(x_vals[i], y_vals[i], color="magenta", label="mouth disease & healthcare", alpha=0.3)
+
+			elif i in clusters[2]:
+				ax.scatter(x_vals[i], y_vals[i], color="orange", label="mortgages & banks", alpha=0.3)
+
+		plt.xlim([-0.0005, 0.005])
+		plt.ylim([-0.0005, 0.005])
+
+
+		# https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_with_legend.html
+		handles, labels = plt.gca().get_legend_handles_labels()
+		by_label = dict(zip(labels, handles))
+		plt.legend(by_label.values(), by_label.keys())
+
+		ax.grid(True)
+		plt.title("Predicted Clusters")
+		plt.show()
 
 
 
-def generate_confusion_matrix(matrix_object, kmeans_object):
+class ConfusionMatrix():
 
-	logger.info("generating the confusion matrix ...")
+	def __init__(self, actual_clusters, predicted_clusters):
+		self.actual_clusters = actual_clusters
+		self.predicted_clusters = predicted_clusters
+		self.actual_vector = []
+		self.predicted_vector = []
 
-	# initialize the matrix
-	C = ConfusionMatrix(kmeans_object)
-	C.get_actual_clusters()
+	def _generate_actual_vector(self):
 
-	logger.info("printing my predicted clusters:")
-	print(kmeans_object.clusters_indices)
-	# ah ok im actually kind of there
+		actual_vector = []
+		for i in range(len(self.actual_clusters)):
 
-	# label the clusters i found for the confusion matrix
+			for j in self.actual_clusters[i]:
+				actual_vector.append(i)
+
+		print("\nactual::")
+		print(actual_vector)
+
+		self.actual_vector = actual_vector
+
+	def _generate_predicted_vector(self):
+
+		predicted_vector = []
+		for i in range(len(self.predicted_clusters)):
+
+			for j in self.predicted_clusters[i]:
+				predicted_vector.append(i)
+
+		print("\npredicted ::")
+		print(predicted_vector)
+
+		self.predicted_vector = predicted_vector
+
+	
+
+	def generate_confision_matrix(self):
+		
+		self._generate_actual_vector()
+		self._generate_predicted_vector()
+
+
 
 
 
@@ -918,13 +1095,22 @@ if __name__ == '__main__':
 
 	# plot the original dataset
 	# and plot my clusters
-	generate_plots(matrix_object.tf_idf_matrix)
+
+	V = Visualize(k_means)
+	V.get_actual_clusters()
+	V.label_predicted_clusters()
+
+	# take a look at the results
+	logger.warning("will render a single plot at a time !")
+	logger.warning("save and close the current plot to continue the program !")
+	V.plot_predicted()
+	V.plot_actual()
 
 
-	generate_confusion_matrix(matrix_object, k_means)
-
-
-
+	# generate_confusion_matrix(matrix_object, k_means)
+	logger.info("Generating confusion matrix...")
+	C = ConfusionMatrix(V.actual_clusters,V.predicted_clusters)
+	C.generate_confision_matrix()
 
 
 
