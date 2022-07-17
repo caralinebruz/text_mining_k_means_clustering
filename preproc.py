@@ -2,6 +2,8 @@
 
 import logging
 import math
+from math import sqrt
+import random
 import string
 
 import nltk
@@ -19,6 +21,15 @@ import spacy
 from spacy import displacy
 
 import itertools
+
+# # for the plotting only
+# import numpy as np
+# from scipy.spatial.distance import cdist 
+# from sklearn.datasets import load_digits
+# from sklearn.decomposition import PCA
+# from sklearn.cluster import KMeans
+# import matplotlib.pyplot as plt
+
 
 
 
@@ -441,7 +452,7 @@ class DocuTermMatrix():
 # preprocess the raw data
 def do_preprocessing():
 
-	#for file in files[0:3]:
+	#for file in files[0:6]:
 	for file in files:
 
 		P = Preprocessor(file)
@@ -489,17 +500,17 @@ def generate_document_term_matrix():
 	M.initialize_matrix()
 	M.fill_matrix()
 
-	for k in range(len(M.matrix)):
-		print(M.matrix[k])
-		print("\n")
+	# for k in range(len(M.matrix)):
+	# 	print(M.matrix[k])
+	# 	print("\n")
 
 	print("\n~~~~ Moving on to TF-IDF section ~~~~\n")
 
 	M.create_tf_idf()
 
-	for k in range(len(M.tf_idf_matrix)):
-		print(M.tf_idf_matrix[k])
-		print("\n")
+	# for k in range(len(M.tf_idf_matrix)):
+	# 	print(M.tf_idf_matrix[k])
+	# 	print("\n")
 
 	return M
 
@@ -610,7 +621,206 @@ def generate_topics_per_folder(matrix_object):
 
 	# write the results to a file
 	write_topics_results(c1_results, c4_results, c7_results)
-	logger.info("done writing the topics selection file.")
+	logger.info("Done writing the topics selection file.\n")
+
+
+
+def average(seq):
+	return sum(seq) / len(seq)
+
+def dot_prod(vector_1, vector_2):
+	return sum(x * y for x, y in zip(vector_1, vector_2))
+
+def mag(vec):
+	return sqrt(dot_prod(vec, vec))
+
+def cosine_similarity(vector_1, vector_2):
+	# define the cosine similarity between the two vectors
+	dot_product = dot_prod(vector_1,vector_2)
+	len_1 = math.sqrt(dot_prod(vector_1,vector_1))
+	len_2 = math.sqrt(dot_prod(vector_2,vector_2))
+
+	# cosine_similarity = dot_prod(vector_1,vector_2) / ( mag(vector_1) * mag(vector_2) + 0.000000001  ) 
+	cosine_similarity = (dot_product) / (len_1 * len_2)
+
+	# print(vector_1)
+	# print(vector_2)
+
+	print("cosine similarity: %s" % cosine_similarity)
+	return cosine_similarity
+
+
+def euclidean_distance(vector_1, vector_2):
+	# define the euclidean distance
+	# https://machinelearningmastery.com/distance-measures-for-machine-learning/
+	euclidean_distance = sqrt(sum((e1-e2)**2 for e1, e2 in zip(vector_1,vector_2)))
+
+	print("euclidean_distance: %s" % euclidean_distance)
+	return euclidean_distance
+
+
+
+class KMeans():
+	def __init__(self, matrix_object):
+		# k-means takes an input of the tf_idf matrix
+		self.documents = matrix_object.tf_idf_matrix					# a list of vectors
+		self.number_of_clusters = 3
+		# self.centroids = random.sample(matrix_object.tf_idf_matrix, 3)	# a list of 3 randomly chosen vectors
+		self.centroids = matrix_object.tf_idf_matrix[0:3]
+
+		# self.clusters = [[] for center in self.centroids]				# a list of 3 lists (containing document vectors)
+		self.clusters = [[],[],[]]
+
+	def assign_clusters(self):
+
+		# for each of the documents 
+		# measure the distance to each of the centroids
+		# pick the relevant centroid index:
+		#			euclidean distance -> smallest number
+		#			cosine similarity -> highest number
+
+		self.clusters = [[],[],[]]
+
+		# for each document find the distance to all three centroids
+		for document_index in range(len(self.documents)):
+
+			document_vector = self.documents[document_index]
+			similarity_score = 0
+			euclidean_similarity_score = 90000000000
+			cluster_index = None
+
+			for centroid_index in range(len(self.centroids)):
+
+
+				''' this section is for cosine similarity
+
+				# get the cosine similarity (number between 0/1)
+				cosine_sim_score = cosine_similarity(document_vector, self.centroids[centroid_index])
+
+				# logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, cosine_sim_score))
+
+				# try to maximize this number for cosine similarity
+				# a cosine similarity closer to 1 means angle is small between the vectors
+				# a cosine similarity closer to 0 means they are practically orthogonal vectors (very different from each other)
+				if cosine_sim_score > similarity_score:
+					# update the similarity score baseline
+					# save the centroid index
+					similarity_score = cosine_sim_score
+					cluster_index = centroid_index
+				'''
+
+
+
+
+				# this section is for euclidean distance minimization
+				# get the euclidean distance
+				euclidean_distance_score = euclidean_distance(document_vector, self.centroids[centroid_index])
+				logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, euclidean_distance_score))
+
+				# try to minimize it fr euclidean
+				if euclidean_distance_score < euclidean_similarity_score:
+					# update the similarity score baseline
+					# save the centroid index
+					euclidean_similarity_score = euclidean_distance_score
+					cluster_index = centroid_index
+
+
+
+			logger.info("in the end, document index %s is most similar to the %s'th centroid." % (document_index, cluster_index))
+
+			# and add the index of that document to the corresponding index in the clusters
+			# self.clusters[cluster_index].append(document_index)
+
+			self.clusters[cluster_index].append(self.documents[document_index])
+
+			print(self.clusters[cluster_index])
+
+
+
+
+	def update_centroids(self):
+
+		# take the average of the points in each cluster group
+
+		# for each index of the centroid
+		# 	average all of the assigned documents of that coordinate value
+		# 	https://github.com/sergeio/text_clustering/blob/master/k_means.py
+
+		new_centroids = []
+
+		for cluster in self.clusters:
+
+	
+			print(len(cluster))
+
+			centroid = [average(ci) for ci in zip(*cluster)]
+			new_centroids.append(centroid)
+
+		if new_centroids == self.centroids:
+			logger.info("\n I can stop now, centroids haven't moved")
+			return False
+
+		#if they have moved, continue to iterate k-means
+		self.centroids = new_centroids
+		return True
+
+
+
+
+
+def get_similarities(matrix_object):
+	logger.info("Starting with K-Means and k=3 ...")
+	
+	# step 1, randomly pick (k=3) data points (a vector) as our initial centroids (centroid vector)
+	K = KMeans(matrix_object)
+
+	# print(K.centroids) 	# a list of 3 vectors
+
+	counter = 1
+	# main iteration for k-means
+	K.assign_clusters()
+	while K.update_centroids():
+		K.assign_clusters()
+		counter += 1
+
+	logger.info("you finished and converged to some centroid values. wohoo!")
+	logger.info("didnt move after %s iterations" % counter)
+
+	# We have created the three centroid vectors/cluster representatives
+	# for i in K.centroids:
+	# 	print("\n\n\nNew Centroid:\n\n")
+	# 	for item in i:
+	# 		print(item)
+
+
+	# We have the following indices in each cluster:
+	for c in K.clusters:
+		print("a cluster has this many nodes:")
+		print(len(c))
+
+
+
+	# K.iterate_k_means()
+
+	# # plotting
+	# #Load Data
+	# data = load_digits().data
+	# pca = PCA(2)
+	  
+	# #Transform the data
+	# df = pca.fit_transform(data)
+	 
+	# #Applying our function
+	# label = kmeans(df,10,1000)
+	 
+	# #Visualize the results
+	 
+	# u_labels = np.unique(label)
+	# for i in u_labels:
+	#     plt.scatter(df[label == i , 0] , df[label == i , 1] , label = i)
+	# plt.legend()
+	# plt.show()
+
 
 
 
@@ -618,8 +828,10 @@ def generate_topics_per_folder(matrix_object):
 if __name__ == '__main__':
 
 	logger.info("starting ...");
-	# global file_object_index
-	# file_object_index = 0
+
+	#
+	# PART 1
+	#
 
 	# does preprocessing on the files
 	# returns a list of preprocessed file objects for each file
@@ -631,13 +843,15 @@ if __name__ == '__main__':
 	matrix_object = generate_document_term_matrix()
 
 	# then gather the list of topics per folder
-	logger.info("consolidate and identify topics of each folder")
+	logger.info("Then: Consolidate and identify topics of each folder")
 	generate_topics_per_folder(matrix_object)
 
+	#
+	# PART 2
+	#
 
-
-
-
+	# clustering textual data
+	get_similarities(matrix_object)
 
 
 
