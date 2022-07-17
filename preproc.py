@@ -20,10 +20,16 @@ from nltk.metrics import BigramAssocMeasures
 import spacy
 from spacy import displacy
 
+
+from scipy import spatial
+
 import itertools
 
-# # for the plotting only
-# import numpy as np
+# for average per row
+import numpy as np
+import pandas as pd
+
+
 # from scipy.spatial.distance import cdist 
 # from sklearn.datasets import load_digits
 # from sklearn.decomposition import PCA
@@ -625,6 +631,42 @@ def generate_topics_per_folder(matrix_object):
 
 
 
+# def is_equal(list1, list2):
+# 	if ((len(list1) == len(list2)) and (all(i in list2 for i in list1))):
+# 		return True
+# 	else:
+# 		return False
+
+def exactly_equal(list1, list2):
+
+	logger.info("Here")
+
+	if (list1[0] == list2[0]) and (list1[1] == list2[1]) and (list1[2] == list2[2]):
+		print("REPEAT")
+	else:
+		print("\n\n\n NO REPEAT  , THEY ARE DIFF \n")
+
+	myzipped = zip(list1, list2)
+	for item in myzipped:
+		print(item)
+		print("\n")
+
+	logger.info("OK")
+
+	df1 = pd.DataFrame(list1)
+	df2 = pd.DataFrame(list2)
+
+	# print(df2)
+
+	if df1.equals(df2):
+		print("\n\t\tthey are equal")
+		return True
+	else:
+		print("\n\n\tNot equal")
+		return False
+
+
+
 def average(seq):
 	return sum(seq) / len(seq)
 
@@ -636,17 +678,13 @@ def mag(vec):
 
 def cosine_similarity(vector_1, vector_2):
 	# define the cosine similarity between the two vectors
-	dot_product = dot_prod(vector_1,vector_2)
-	len_1 = math.sqrt(dot_prod(vector_1,vector_1))
-	len_2 = math.sqrt(dot_prod(vector_2,vector_2))
-
 	# cosine_similarity = dot_prod(vector_1,vector_2) / ( mag(vector_1) * mag(vector_2) + 0.000000001  ) 
-	cosine_similarity = (dot_product) / (len_1 * len_2)
 
-	# print(vector_1)
-	# print(vector_2)
+	# cosine_similarity = 1 - dot_prod(vector_1,vector_2) / ( mag(vector_1) * mag(vector_2) + 0.000000001  ) 
 
-	print("cosine similarity: %s" % cosine_similarity)
+	# print("cosine similarity: %s" % cosine_similarity)
+	cosine_similarity = 1 - spatial.distance.cosine(vector_1, vector_2)
+
 	return cosine_similarity
 
 
@@ -655,18 +693,19 @@ def euclidean_distance(vector_1, vector_2):
 	# https://machinelearningmastery.com/distance-measures-for-machine-learning/
 	euclidean_distance = sqrt(sum((e1-e2)**2 for e1, e2 in zip(vector_1,vector_2)))
 
-	print("euclidean_distance: %s" % euclidean_distance)
+	# print("euclidean_distance: %s" % euclidean_distance)
 	return euclidean_distance
 
 
 
 class KMeans():
 	def __init__(self, matrix_object):
+		self.matrix_object = matrix_object
 		# k-means takes an input of the tf_idf matrix
 		self.documents = matrix_object.tf_idf_matrix					# a list of vectors
 		self.number_of_clusters = 3
-		# self.centroids = random.sample(matrix_object.tf_idf_matrix, 3)	# a list of 3 randomly chosen vectors
-		self.centroids = matrix_object.tf_idf_matrix[0:3]
+		self.centroids = random.sample(matrix_object.tf_idf_matrix, 3)	# a list of 3 randomly chosen vectors
+		# self.centroids = matrix_object.tf_idf_matrix[0:3]
 
 		# self.clusters = [[] for center in self.centroids]				# a list of 3 lists (containing document vectors)
 		self.clusters = [[],[],[]]
@@ -687,16 +726,16 @@ class KMeans():
 			document_vector = self.documents[document_index]
 			similarity_score = 0
 			euclidean_similarity_score = 90000000000
-			cluster_index = None
+			cluster_index = 0
 
 			for centroid_index in range(len(self.centroids)):
 
 
-				''' this section is for cosine similarity
+				# COSINE
+
 
 				# get the cosine similarity (number between 0/1)
 				cosine_sim_score = cosine_similarity(document_vector, self.centroids[centroid_index])
-
 				# logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, cosine_sim_score))
 
 				# try to maximize this number for cosine similarity
@@ -707,33 +746,31 @@ class KMeans():
 					# save the centroid index
 					similarity_score = cosine_sim_score
 					cluster_index = centroid_index
-				'''
+
+
+				### EUCLIDEAN
+
+
+				# # this section is for euclidean distance minimization
+				# # get the euclidean distance
+				# euclidean_distance_score = euclidean_distance(document_vector, self.centroids[centroid_index])
+				# logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, euclidean_distance_score))
+
+				# # try to minimize it fr euclidean
+				# if euclidean_distance_score < euclidean_similarity_score:
+				# 	# update the similarity score baseline
+				# 	# save the centroid index
+				# 	euclidean_similarity_score = euclidean_distance_score
+				# 	cluster_index = centroid_index
 
 
 
-
-				# this section is for euclidean distance minimization
-				# get the euclidean distance
-				euclidean_distance_score = euclidean_distance(document_vector, self.centroids[centroid_index])
-				logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, euclidean_distance_score))
-
-				# try to minimize it fr euclidean
-				if euclidean_distance_score < euclidean_similarity_score:
-					# update the similarity score baseline
-					# save the centroid index
-					euclidean_similarity_score = euclidean_distance_score
-					cluster_index = centroid_index
-
-
-
-			logger.info("in the end, document index %s is most similar to the %s'th centroid." % (document_index, cluster_index))
+			# logger.info("in the end, document index %s is most similar to the %s'th centroid." % (document_index, cluster_index))
 
 			# and add the index of that document to the corresponding index in the clusters
 			# self.clusters[cluster_index].append(document_index)
 
 			self.clusters[cluster_index].append(self.documents[document_index])
-
-			print(self.clusters[cluster_index])
 
 
 
@@ -750,14 +787,54 @@ class KMeans():
 
 		for cluster in self.clusters:
 
-	
-			print(len(cluster))
 
-			centroid = [average(ci) for ci in zip(*cluster)]
+			# centroid = [average(ci) for ci in zip(*cluster)]
+
+			'''
+
+			cluster:
+
+			[1,2,1,1]
+			[2,0,0,1]
+			[1,1,0,0]
+
+
+				centroid[0] = (1+2+1)/3
+				centroid[1] = (2+0+1)/3
+				centroid[2] = (1+1+0)/3
+				
+
+
+			'''
+			centroid = [0] * len(cluster[0])
+			num_divide = len(cluster)
+			print("num of documents in this cluster: %s" % num_divide)
+			# print(centroid)
+
+			for j in range(len(cluster)): 					# rows
+				for i in range(len(cluster[j])): 			# cols
+
+
+					centroid[i] += cluster[j][i]
+
+
+
+			for k in range(len(centroid)):
+
+				centroid[k] = (centroid[k] / num_divide)
+
+
+
+			print(centroid)
+
+			# a = np.mean(cluster, axis=0)
+			# centroid = a.tolist()
+
 			new_centroids.append(centroid)
 
-		if new_centroids == self.centroids:
-			logger.info("\n I can stop now, centroids haven't moved")
+
+		if exactly_equal(new_centroids, self.centroids):
+			print("Returning False for stopping criterion...")
 			return False
 
 		#if they have moved, continue to iterate k-means
@@ -781,7 +858,16 @@ def get_similarities(matrix_object):
 	K.assign_clusters()
 	while K.update_centroids():
 		K.assign_clusters()
+		
+		# # We have the following indices in each cluster:
+		# for c in K.clusters:
+		# 	print("a cluster has this many nodes:")
+		# 	print(len(c))
+
+		# just in case . dont go crazy
 		counter += 1
+		if counter > 10:
+			break
 
 	logger.info("you finished and converged to some centroid values. wohoo!")
 	logger.info("didnt move after %s iterations" % counter)
