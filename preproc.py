@@ -29,13 +29,11 @@ import itertools
 import numpy as np
 import pandas as pd
 
-
-# from scipy.spatial.distance import cdist 
-# from sklearn.datasets import load_digits
-# from sklearn.decomposition import PCA
-# from sklearn.cluster import KMeans
-# import matplotlib.pyplot as plt
-
+# for plotting
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib
+from matplotlib import pyplot as plt
 
 
 
@@ -49,17 +47,8 @@ logger = logging
 
 infile_path = "data/"
 outfile_path = "data/out/"
+my_process_objects = []
 
-# files = [
-# 	"C1/article01.txt",
-# 	"C1/article02.txt",
-# 	"C1/article03.txt",
-# 	"C1/article04.txt",
-# 	"C1/article05.txt",
-# 	"C1/article06.txt",
-# 	"C1/article07.txt",
-# 	"C1/article08.txt"
-# ]
 
 files = [
 	"C1/article01.txt",
@@ -87,9 +76,6 @@ files = [
 	"C7/article07.txt",
 	"C7/article08.txt",
 ]
-
-my_process_objects = []
-
 
 
 
@@ -301,7 +287,6 @@ def write_keywords_concepts_file(P):
 
 
 
-
 # # collect keywords and terms across all the files
 # def generate_term_document_matrix():
 class DocuTermMatrix():
@@ -454,7 +439,6 @@ class DocuTermMatrix():
 
 
 
-
 # preprocess the raw data
 def do_preprocessing():
 
@@ -506,17 +490,8 @@ def generate_document_term_matrix():
 	M.initialize_matrix()
 	M.fill_matrix()
 
-	# for k in range(len(M.matrix)):
-	# 	print(M.matrix[k])
-	# 	print("\n")
-
 	print("\n~~~~ Moving on to TF-IDF section ~~~~\n")
-
 	M.create_tf_idf()
-
-	# for k in range(len(M.tf_idf_matrix)):
-	# 	print(M.tf_idf_matrix[k])
-	# 	print("\n")
 
 	return M
 
@@ -631,40 +606,14 @@ def generate_topics_per_folder(matrix_object):
 
 
 
-# def is_equal(list1, list2):
-# 	if ((len(list1) == len(list2)) and (all(i in list2 for i in list1))):
-# 		return True
-# 	else:
-# 		return False
+def exactly_equal(new_centroids, old_centroids):
 
-def exactly_equal(list1, list2):
+	if new_centroids[0] == old_centroids[0]:
+		if new_centroids[1] == old_centroids[1]:
+			if new_centroids[2] == old_centroids[2]:
+				return True
 
-	logger.info("Here")
-
-	if (list1[0] == list2[0]) and (list1[1] == list2[1]) and (list1[2] == list2[2]):
-		print("REPEAT")
-	else:
-		print("\n\n\n NO REPEAT  , THEY ARE DIFF \n")
-
-	myzipped = zip(list1, list2)
-	for item in myzipped:
-		print(item)
-		print("\n")
-
-	logger.info("OK")
-
-	df1 = pd.DataFrame(list1)
-	df2 = pd.DataFrame(list2)
-
-	# print(df2)
-
-	if df1.equals(df2):
-		print("\n\t\tthey are equal")
-		return True
-	else:
-		print("\n\n\tNot equal")
-		return False
-
+	return False
 
 
 def average(seq):
@@ -704,11 +653,13 @@ class KMeans():
 		# k-means takes an input of the tf_idf matrix
 		self.documents = matrix_object.tf_idf_matrix					# a list of vectors
 		self.number_of_clusters = 3
-		self.centroids = random.sample(matrix_object.tf_idf_matrix, 3)	# a list of 3 randomly chosen vectors
+		# self.centroids = random.sample(matrix_object.tf_idf_matrix, 3)	# a list of 3 randomly chosen vectors
 		# self.centroids = matrix_object.tf_idf_matrix[0:3]
+		self.centroids = [matrix_object.tf_idf_matrix[0], matrix_object.tf_idf_matrix[10], matrix_object.tf_idf_matrix[23]]
 
 		# self.clusters = [[] for center in self.centroids]				# a list of 3 lists (containing document vectors)
 		self.clusters = [[],[],[]]
+		self.clusters_indices = [[],[],[]]
 
 	def assign_clusters(self):
 
@@ -719,6 +670,7 @@ class KMeans():
 		#			cosine similarity -> highest number
 
 		self.clusters = [[],[],[]]
+		self.clusters_indices = [[],[],[]]
 
 		# for each document find the distance to all three centroids
 		for document_index in range(len(self.documents)):
@@ -726,12 +678,12 @@ class KMeans():
 			document_vector = self.documents[document_index]
 			similarity_score = 0
 			euclidean_similarity_score = 90000000000
-			cluster_index = 0
+			cluster_index = 1
 
 			for centroid_index in range(len(self.centroids)):
 
 
-				# COSINE
+				### COSINE
 
 
 				# get the cosine similarity (number between 0/1)
@@ -746,6 +698,9 @@ class KMeans():
 					# save the centroid index
 					similarity_score = cosine_sim_score
 					cluster_index = centroid_index
+
+				## * ^ there is a problem here. if a document is perpendicular to all of the centroids what do i do? it doesnt get into any cluster?
+				# at the moment i put it into cluster 1, which really screws with my results and is a bad assumption :(
 
 
 				### EUCLIDEAN
@@ -764,85 +719,55 @@ class KMeans():
 				# 	cluster_index = centroid_index
 
 
-
 			# logger.info("in the end, document index %s is most similar to the %s'th centroid." % (document_index, cluster_index))
 
 			# and add the index of that document to the corresponding index in the clusters
-			# self.clusters[cluster_index].append(document_index)
-
+			self.clusters_indices[cluster_index].append(document_index)
 			self.clusters[cluster_index].append(self.documents[document_index])
-
-
 
 
 	def update_centroids(self):
 
 		# take the average of the points in each cluster group
-
-		# for each index of the centroid
-		# 	average all of the assigned documents of that coordinate value
-		# 	https://github.com/sergeio/text_clustering/blob/master/k_means.py
-
 		new_centroids = []
 
 		for cluster in self.clusters:
 
 
-			# centroid = [average(ci) for ci in zip(*cluster)]
+			# initialize a new centroid for each cluster
+			new_centroid = [0] * len(cluster[0])
 
-			'''
+			for item in range(len(cluster[0])):
 
-			cluster:
+				the_column_values = []
+				#print("col:%s" % item)
 
-			[1,2,1,1]
-			[2,0,0,1]
-			[1,1,0,0]
+				for row in cluster:
+					value = row[item]
 
+					#print("cell value: %s" % value)
 
-				centroid[0] = (1+2+1)/3
-				centroid[1] = (2+0+1)/3
-				centroid[2] = (1+1+0)/3
-				
-
-
-			'''
-			centroid = [0] * len(cluster[0])
-			num_divide = len(cluster)
-			print("num of documents in this cluster: %s" % num_divide)
-			# print(centroid)
-
-			for j in range(len(cluster)): 					# rows
-				for i in range(len(cluster[j])): 			# cols
+					the_column_values.append(value)
 
 
-					centroid[i] += cluster[j][i]
+				# once we've gone through all the row-values, 
+				# take the average and append it to new new_centroid
+				avg_value = average(the_column_values)
+				#print("the average of column %s is %s" % (item, avg_value))
+
+				new_centroid[item] = avg_value
+
+			new_centroids.append(new_centroid)
 
 
-
-			for k in range(len(centroid)):
-
-				centroid[k] = (centroid[k] / num_divide)
-
-
-
-			print(centroid)
-
-			# a = np.mean(cluster, axis=0)
-			# centroid = a.tolist()
-
-			new_centroids.append(centroid)
-
-
+		# then compare these centroids to the ones we had previously
 		if exactly_equal(new_centroids, self.centroids):
-			print("Returning False for stopping criterion...")
+			print("You have met the stopping criterion. Returning to caller ... ")
 			return False
 
 		#if they have moved, continue to iterate k-means
 		self.centroids = new_centroids
 		return True
-
-
-
 
 
 def get_similarities(matrix_object):
@@ -884,28 +809,67 @@ def get_similarities(matrix_object):
 		print("a cluster has this many nodes:")
 		print(len(c))
 
+	return K
 
 
-	# K.iterate_k_means()
+def generate_plots(matrix):
 
-	# # plotting
-	# #Load Data
-	# data = load_digits().data
-	# pca = PCA(2)
-	  
-	# #Transform the data
-	# df = pca.fit_transform(data)
-	 
-	# #Applying our function
-	# label = kmeans(df,10,1000)
-	 
-	# #Visualize the results
-	 
-	# u_labels = np.unique(label)
-	# for i in u_labels:
-	#     plt.scatter(df[label == i , 0] , df[label == i , 1] , label = i)
-	# plt.legend()
+	# X = np.array(matrix)
+
+	pca = PCA(n_components=2)
+
+
+	Principal_Components = pca.fit_transform(matrix)
+	plot = plt.scatter(Principal_Components[:,0],Principal_Components[:,1])
 	# plt.show()
+
+
+	Principal_Components_2 = pca.fit(matrix)
+	plot2 = plt.scatter(Principal_Components[:,0],Principal_Components[:,1])
+	# plt.show()
+
+
+class ConfusionMatrix():
+
+	def __init__(self, kmeans_object):
+		# 4 x 4 cell matrix
+		self.confision_matrix = [0] * 4
+		self.predicted_clusters = kmeans_object.clusters_indices
+		self.actual_clusters = [[],[],[]]
+		self.predicted_clusters = [[],[],[]]
+
+
+	def get_actual_clusters(self):
+
+		self.actual_clusters[0] = [0,1,2,3,4,5,6,7]
+		self.actual_clusters[1] = [8,9,10,11,12,13,14,15]
+		self.actual_clusters[2] = [16,17,18,19,20,21,22,23]
+
+
+		print("\nactual clusters:")
+		for cluster in self.actual_clusters:
+			print(cluster)
+			print("\n")
+
+	def label_predicted_clusters(self):
+
+		# get the average valyes and rank them, call them lowest middle high and c1,c2,c3
+		pass
+
+
+
+def generate_confusion_matrix(matrix_object, kmeans_object):
+
+	logger.info("generating the confusion matrix")
+
+	# initialize the matrix
+	C = ConfusionMatrix(kmeans_object)
+	C.get_actual_clusters()
+
+	print(kmeans_object.clusters_indices)
+	# ah ok im actually kind of there
+
+	# label the clusters i found for the confusion matrix
 
 
 
@@ -937,7 +901,15 @@ if __name__ == '__main__':
 	#
 
 	# clustering textual data
-	get_similarities(matrix_object)
+	k_means = get_similarities(matrix_object)
+
+	# plot the original dataset
+	# and plot my clusters
+	generate_plots(matrix_object.tf_idf_matrix)
+
+
+	generate_confusion_matrix(matrix_object, k_means)
+
 
 
 
