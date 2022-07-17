@@ -617,23 +617,24 @@ def exactly_equal(new_centroids, old_centroids):
 
 
 def average(seq):
-	return sum(seq) / len(seq)
+
+	if len(seq) == 0:
+		print("PROBLEM\n\n")
+		print(seq)
+
+	return float(sum(seq) / len(seq))
 
 def dot_prod(vector_1, vector_2):
-	return sum(x * y for x, y in zip(vector_1, vector_2))
+	return float(sum(x * y for x, y in zip(vector_1, vector_2)))
 
 def mag(vec):
-	return sqrt(dot_prod(vec, vec))
+	return float(sqrt(dot_prod(vec, vec)))
 
 def cosine_similarity(vector_1, vector_2):
 	# define the cosine similarity between the two vectors
-	# cosine_similarity = dot_prod(vector_1,vector_2) / ( mag(vector_1) * mag(vector_2) + 0.000000001  ) 
-
-	# cosine_similarity = 1 - dot_prod(vector_1,vector_2) / ( mag(vector_1) * mag(vector_2) + 0.000000001  ) 
+	cosine_similarity = dot_prod(vector_1,vector_2) / ( mag(vector_1) * mag(vector_2) + 0.000000001  ) 
 
 	# print("cosine similarity: %s" % cosine_similarity)
-	cosine_similarity = 1 - spatial.distance.cosine(vector_1, vector_2)
-
 	return cosine_similarity
 
 
@@ -650,14 +651,13 @@ def euclidean_distance(vector_1, vector_2):
 class KMeans():
 	def __init__(self, matrix_object):
 		self.matrix_object = matrix_object
-		# k-means takes an input of the tf_idf matrix
 		self.documents = matrix_object.tf_idf_matrix					# a list of vectors
 		self.number_of_clusters = 3
-		# self.centroids = random.sample(matrix_object.tf_idf_matrix, 3)	# a list of 3 randomly chosen vectors
-		# self.centroids = matrix_object.tf_idf_matrix[0:3]
-		self.centroids = [matrix_object.tf_idf_matrix[0], matrix_object.tf_idf_matrix[10], matrix_object.tf_idf_matrix[23]]
 
-		# self.clusters = [[] for center in self.centroids]				# a list of 3 lists (containing document vectors)
+		# self.centroids = random.choices(matrix_object.tf_idf_matrix, k=3)
+		self.centroids = matrix_object.tf_idf_matrix[0:3]
+		# self.centroids = [matrix_object.tf_idf_matrix[5], matrix_object.tf_idf_matrix[10], matrix_object.tf_idf_matrix[15]]
+
 		self.clusters = [[],[],[]]
 		self.clusters_indices = [[],[],[]]
 
@@ -674,6 +674,7 @@ class KMeans():
 
 		# for each document find the distance to all three centroids
 		for document_index in range(len(self.documents)):
+
 
 			document_vector = self.documents[document_index]
 			similarity_score = 0
@@ -725,6 +726,9 @@ class KMeans():
 			self.clusters_indices[cluster_index].append(document_index)
 			self.clusters[cluster_index].append(self.documents[document_index])
 
+			for cl in self.clusters_indices:
+				logger.info(cl)
+
 
 	def update_centroids(self):
 
@@ -734,19 +738,23 @@ class KMeans():
 		for cluster in self.clusters:
 
 
+			num_keywords_concepts = len(self.matrix_object.keywords_concepts)
 			# initialize a new centroid for each cluster
-			new_centroid = [0] * len(cluster[0])
+			new_centroid = [0] * num_keywords_concepts
 
-			for item in range(len(cluster[0])):
+			if not cluster:
+				logger.warning("problem! ~ this cluster is empty\n")
+
+
+			for item in range(num_keywords_concepts):
 
 				the_column_values = []
-				#print("col:%s" % item)
+				# print("col:%s" % item)
 
 				for row in cluster:
 					value = row[item]
 
 					#print("cell value: %s" % value)
-
 					the_column_values.append(value)
 
 
@@ -765,9 +773,10 @@ class KMeans():
 			print("You have met the stopping criterion. Returning to caller ... ")
 			return False
 
-		#if they have moved, continue to iterate k-means
-		self.centroids = new_centroids
-		return True
+		else:
+			# if they have moved, continue to iterate k-means
+			self.centroids = new_centroids
+			return True
 
 
 def get_similarities(matrix_object):
@@ -776,7 +785,7 @@ def get_similarities(matrix_object):
 	# step 1, randomly pick (k=3) data points (a vector) as our initial centroids (centroid vector)
 	K = KMeans(matrix_object)
 
-	# print(K.centroids) 	# a list of 3 vectors
+	print(K.centroids) 	# a list of 3 vectors
 
 	counter = 1
 	# main iteration for k-means
@@ -784,18 +793,13 @@ def get_similarities(matrix_object):
 	while K.update_centroids():
 		K.assign_clusters()
 		
-		# # We have the following indices in each cluster:
-		# for c in K.clusters:
-		# 	print("a cluster has this many nodes:")
-		# 	print(len(c))
-
 		# just in case . dont go crazy
 		counter += 1
 		if counter > 10:
 			break
 
 	logger.info("you finished and converged to some centroid values. wohoo!")
-	logger.info("didnt move after %s iterations" % counter)
+	logger.info("k-means took %s iterations" % counter)
 
 	# We have created the three centroid vectors/cluster representatives
 	# for i in K.centroids:
@@ -846,10 +850,10 @@ class ConfusionMatrix():
 		self.actual_clusters[2] = [16,17,18,19,20,21,22,23]
 
 
-		print("\nactual clusters:")
+		logger.info("\nactual clusters:")
 		for cluster in self.actual_clusters:
-			print(cluster)
-			print("\n")
+			logger.info("\t %s" % cluster)
+
 
 	def label_predicted_clusters(self):
 
@@ -860,12 +864,13 @@ class ConfusionMatrix():
 
 def generate_confusion_matrix(matrix_object, kmeans_object):
 
-	logger.info("generating the confusion matrix")
+	logger.info("generating the confusion matrix ...")
 
 	# initialize the matrix
 	C = ConfusionMatrix(kmeans_object)
 	C.get_actual_clusters()
 
+	logger.info("printing my predicted clusters:")
 	print(kmeans_object.clusters_indices)
 	# ah ok im actually kind of there
 
@@ -895,6 +900,14 @@ if __name__ == '__main__':
 	# then gather the list of topics per folder
 	logger.info("Then: Consolidate and identify topics of each folder")
 	generate_topics_per_folder(matrix_object)
+
+	# from looking at the generated topics file, I think the topics are:
+	topics_per_folder = [
+		'police force & air china',
+		'mouth diseases & vaccines',
+		'mortgages & banks'
+	]
+
 
 	#
 	# PART 2
