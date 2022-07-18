@@ -37,7 +37,7 @@ from scipy.sparse.linalg import svds
 from sklearn.decomposition import TruncatedSVD
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, classification_report
 import matplotlib
 from matplotlib import pyplot as plt
 
@@ -499,14 +499,6 @@ def generate_document_term_matrix():
 	print("\n~~~~ Moving on to TF-IDF section ~~~~\n")
 	M.create_tf_idf()
 
-
-	# check for sanity
-	logger.warning("checking for sanity:")
-	logger.warning(len(M.tf_idf_matrix))
-	logger.warning(M.total_documents)
-	logger.warning("my_process_objects::")
-	logger.warning(len(my_process_objects))
-
 	return M
 
 
@@ -676,7 +668,7 @@ class KMeans():
 		self.clusters = [[],[],[]]
 		self.clusters_indices = [[],[],[]]
 
-	# 
+	# ensure it doesnt randomly pick the same centroid twice :(
 	def initialize_centroids(self):
 
 		new_centroids_str = []
@@ -686,38 +678,16 @@ class KMeans():
 
 			starting_centroid = random.choice(self.documents)
 
-			#new_centroids.add(starting_centroid)
-
 			hash_value = hash(str(starting_centroid))
 			if hash_value not in new_centroids_str:
 
 				new_centroids_str.append(hash_value)
 				new_centroids.append(starting_centroid)
 
-
-
-		# to_pick_from = []
-		# to_pick_from = self.matrix_object.tf_idf_matrix
-
-		# for k in range(3):
-		# 	starting_centroid = random.choice(to_pick_from)
-
-		# 	print(starting_centroid)
-		# 	print("\n")
-		# 	# remove it so that it cant be picked again
-		# 	to_pick_from.remove(starting_centroid)
-
-		#	new_centroids.append(starting_centroid)
-
-		# new_centroid_list = list(new_centroids)
 		self.centroids = new_centroids
 
 
 	def assign_clusters(self):
-
-		logger.warning("checking the length of documents (tf/idf matrix)")
-		logger.warning(len(self.documents))
-
 		# for each of the documents 
 		# measure the distance to each of the centroids
 		# pick the relevant centroid index:
@@ -741,8 +711,7 @@ class KMeans():
 
 				### COSINE
 
-
-				# get the cosine similarity (number between 0/1)
+				# get the cosine similarity
 				cosine_sim_score = cosine_similarity(document_vector, self.centroids[centroid_index])
 				# logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, cosine_sim_score))
 
@@ -750,27 +719,21 @@ class KMeans():
 				# a cosine similarity closer to 1 means angle is small between the vectors
 				# a cosine similarity closer to 0 means they are practically orthogonal vectors (very different from each other)
 				if cosine_sim_score > similarity_score:
-					# update the similarity score baseline
-					# save the centroid index
 					similarity_score = cosine_sim_score
 					cluster_index = centroid_index
 
-				## * ^ there is a problem here. if a document is perpendicular to all of the centroids what do i do? it doesnt get into any cluster?
-				# at the moment i put it into cluster 1, which really screws with my results and is a bad assumption :(
 
 
 				### EUCLIDEAN
 
-
-				# # this section is for euclidean distance minimization
-				# # get the euclidean distance
+				# euclidean distance minimization
 				# euclidean_distance_score = euclidean_distance(document_vector, self.centroids[centroid_index])
 				# logger.info("distance between document index: %s and centroid index: %s :: %s" % (document_index, centroid_index, euclidean_distance_score))
 
-				# # try to minimize it fr euclidean
+				# try to minimize it fr euclidean
+				# update the similarity score baseline
+				# save the centroid index			
 				# if euclidean_distance_score < euclidean_similarity_score:
-				# 	# update the similarity score baseline
-				# 	# save the centroid index
 				# 	euclidean_similarity_score = euclidean_distance_score
 				# 	cluster_index = centroid_index
 
@@ -825,7 +788,7 @@ class KMeans():
 
 		# then compare these centroids to the ones we had previously
 		if exactly_equal(new_centroids, self.centroids):
-			print("You have met the stopping criterion. Returning to caller ... ")
+			logger.debug("You have met the stopping criterion. Returning to caller ... ")
 			return False
 
 		else:
@@ -836,23 +799,14 @@ class KMeans():
 
 def get_similarities(matrix_object):
 	logger.info("Starting with K-Means and k=3 ...")
-
-	logger.warning("checking for sanity atop:")
-	logger.warning(len(matrix_object.tf_idf_matrix))
 	
 	# step 1, randomly pick (k=3) data points (a vector) as our initial centroids (centroid vector)
 	K = KMeans(matrix_object)
 
-	logger.warning("checking for sanity atop:")
-	logger.warning(len(matrix_object.tf_idf_matrix))
-
 	K.initialize_centroids()
 
-	logger.warning("checking for sanity atop:")
-	logger.warning(len(matrix_object.tf_idf_matrix))
-
-	logger.info("centroids:")
-	print(K.centroids) 	# a list of 3 vectors
+	logger.debug("centroids:")
+	logger.debug(K.centroids) 	# a list of 3 vectors
 
 	counter = 1
 	# main iteration for k-means
@@ -865,18 +819,18 @@ def get_similarities(matrix_object):
 		if counter > 10:
 			break
 
-	logger.info("you finished and converged to some centroid values. wohoo!")
+	logger.debug("you finished and converged to some centroid values. wohoo!")
 	logger.info("k-means took %s iterations" % counter)
 
 	# We have the following indices in each cluster:
 	for c in K.clusters:
-		print("a cluster has this many nodes:")
-		print(len(c))
+		logger.info("a cluster has this many nodes:")
+		logger.info(len(c))
 
 
-	logger.warning("checking for sanity:")
-	logger.warning(len(matrix_object.tf_idf_matrix))
-	logger.warning(len(K.documents))
+	# logger.warning("checking for sanity:")
+	# logger.warning(len(matrix_object.tf_idf_matrix))
+	# logger.warning(len(K.documents))
 
 
 	return K
@@ -897,9 +851,9 @@ class Visualize():
 		self.actual_clusters[2] = [16,17,18,19,20,21,22,23]
 		self.label_dict = {}
 
-		logger.info("\nactual clusters:")
+		logger.debug("\nactual clusters:")
 		for cluster in self.actual_clusters:
-			logger.info("\t %s" % cluster)
+			logger.debug("\t %s" % cluster)
 
 
 	def label_predicted_clusters(self):
@@ -923,7 +877,7 @@ class Visualize():
 		svd =  TruncatedSVD(n_components = 2)
 		A_transf = svd.fit_transform(A)
 
-		print("Transformed Matrix after reducing to 2 features:")
+		logger.info("Transformed Matrix after reducing to 2 features:")
 		print(A_transf)
 
 
@@ -967,12 +921,11 @@ class Visualize():
 
 		A = np.array(self.tf_idf_matrix)
 
-
 		svd =  TruncatedSVD(n_components = 2)
 		A_transf = svd.fit_transform(A)
 
-		print("Transformed Matrix after reducing to 2 features:")
-		print(A_transf)
+		logger.debug("Transformed Matrix after reducing to 2 features:")
+		logger.debug(A_transf)
 
 
 		labels = files 
@@ -1017,6 +970,9 @@ class ConfusionMatrix():
 		self.predicted_clusters = predicted_clusters
 		self.actual_vector = []
 		self.predicted_vector = []
+		self.label_dict = {}
+		self.precision = None
+		self.recall = None
 
 	def _generate_actual_vector(self):
 
@@ -1026,8 +982,8 @@ class ConfusionMatrix():
 			for j in self.actual_clusters[i]:
 				actual_vector.append(i)
 
-		print("\nactual::")
-		print(actual_vector)
+		logger.debug("\nactual::")
+		logger.debug(actual_vector)
 
 		self.actual_vector = actual_vector
 
@@ -1039,17 +995,61 @@ class ConfusionMatrix():
 			for j in self.predicted_clusters[i]:
 				predicted_vector.append(i)
 
-		print("\npredicted ::")
-		print(predicted_vector)
+		logger.debug("\npredicted ::")
+		logger.debug(predicted_vector)
 
 		self.predicted_vector = predicted_vector
 
 	
 
 	def generate_confision_matrix(self):
+		logger.info("Generating the confusion matrix now ...")
 		
 		self._generate_actual_vector()
 		self._generate_predicted_vector()
+
+		self.confusion_matrix = confusion_matrix(self.actual_vector, self.predicted_vector)
+
+		logger.info("Confusion Matrix:")
+		print(self.confusion_matrix)
+
+		'''
+			(predicted labels)
+				0 	1 	2
+
+				6 	2	0		2
+				0	7	1		1 	(actual labels)
+				0	0	8		0
+
+		'''
+
+
+	def consider_precision_recall(self):
+		logger.info("precision and recall scores:")
+
+		self.label_dict = {
+
+			0: 'police force air china',
+			1: 'mouth disease & healthcare',
+			2: 'mortgages & banks'
+
+		}
+		labels = [v for v in self.label_dict.values()]
+
+		# https://stackoverflow.com/questions/40729875/calculate-precision-and-recall-in-a-confusion-matrix
+		conf = np.array(self.confusion_matrix)
+		# will be same as false false for now
+		true_positive = np.diag(conf)		# along the diagonal of the matrix
+		false_positive = np.sum(conf, axis=0) - true_positive
+		false_negative = np.sum(conf, axis=1) - true_positive
+
+		self.precision = np.average(true_positive / (true_positive + false_positive) )
+		self.recall = np.average(true_positive / (true_positive + false_negative) )
+
+		logger.info("Precision: %s" % self.precision)
+		logger.info("Recall: %s" % self.recall)
+
+
 
 
 
@@ -1111,6 +1111,7 @@ if __name__ == '__main__':
 	logger.info("Generating confusion matrix...")
 	C = ConfusionMatrix(V.actual_clusters,V.predicted_clusters)
 	C.generate_confision_matrix()
+	C.consider_precision_recall()
 
 
 
