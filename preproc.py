@@ -112,7 +112,7 @@ class Preprocessor():
 		with open(self.filename) as f:
 			self.lines = f.readlines()
 
-			logger.info("line 0: %s", self.lines[0])
+			logger.debug("line 0: %s", self.lines[0])
 
 	def filter_stopwords_lemmatize(self):
 		logger.info("removing stopwords ...")
@@ -161,10 +161,10 @@ class Preprocessor():
 
 		mytext = NER(self.document_text)
 
-		logger.info("Found the following entities:")
+		logger.debug("Found the following entities:")
 		for ent in mytext.ents:
 			# print(ent.text, ent.start_char, ent.end_char, ent.label_)
-			logger.info("\t %s : %s" % (ent.text, ent.label_))
+			logger.debug("\t %s : %s" % (ent.text, ent.label_))
 			this_ent = ent.text
 
 			# if there is one or more spaces in the ENT
@@ -659,12 +659,7 @@ class KMeans():
 		self.matrix_object = matrix_object
 		self.documents = matrix_object.tf_idf_matrix					# a list of vectors
 		self.number_of_clusters = 3
-
 		self.centroids = [[],[],[]]
-		# self.centroids = random.choices(matrix_object.tf_idf_matrix, k=3)
-		# self.centroids = matrix_object.tf_idf_matrix[0:3]
-		# self.centroids = [matrix_object.tf_idf_matrix[5], matrix_object.tf_idf_matrix[10], matrix_object.tf_idf_matrix[15]]
-
 		self.clusters = [[],[],[]]
 		self.clusters_indices = [[],[],[]]
 
@@ -738,14 +733,15 @@ class KMeans():
 				# 	cluster_index = centroid_index
 
 
-			# logger.info("in the end, document index %s is most similar to the %s'th centroid." % (document_index, cluster_index))
+
+			logger.debug("in the end, document index %s is most similar to the %s'th centroid." % (document_index, cluster_index))
 
 			# and add the index of that document to the corresponding index in the clusters
 			self.clusters_indices[cluster_index].append(document_index)
 			self.clusters[cluster_index].append(self.documents[document_index])
 
 			for cl in self.clusters_indices:
-				logger.info(cl)
+				logger.debug(cl)
 
 
 	def update_centroids(self):
@@ -973,6 +969,7 @@ class ConfusionMatrix():
 		self.label_dict = {}
 		self.precision = None
 		self.recall = None
+		self.f1_score = None
 
 	def _generate_actual_vector(self):
 
@@ -1050,9 +1047,13 @@ class ConfusionMatrix():
 		logger.info("Recall: %s" % self.recall)
 
 
+	def consider_F1_score(self):
+		logger.info("calculating F1 score ...")
 
+		# f1= 2 * [ (precision* recall ) / (precision + recall) ]
+		self.f1_score = 2 * ( (self.precision * self.recall) / (self.precision + self.recall) ) 
 
-
+		logger.info("F1 Score: %s" % self.f1_score)
 
 
 
@@ -1112,7 +1113,7 @@ if __name__ == '__main__':
 	C = ConfusionMatrix(V.actual_clusters,V.predicted_clusters)
 	C.generate_confision_matrix()
 	C.consider_precision_recall()
-
+	C.consider_F1_score()
 
 
 
