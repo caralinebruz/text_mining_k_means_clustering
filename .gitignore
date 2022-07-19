@@ -8,7 +8,6 @@ __pycache__/
 
 #caraline's
 .DS_STORE
-data/out/*
 
 # Distribution / packaging
 .Python
