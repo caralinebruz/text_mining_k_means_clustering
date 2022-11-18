@@ -1,4 +1,6 @@
-# Text Mining Assignment 1 - Predictive Analytics
+# Text Mining & K-Means Clustering 
+
+Predictive Analytics class assignment 1
 
 Directions to run:
 1. Install the required packages
